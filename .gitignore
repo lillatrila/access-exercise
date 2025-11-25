@@ -1,0 +1,48 @@
+# Build results
+bin/
+obj/
+.vs/
+.vscode/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio cache/options
+.vs/
+
+# Rider
+.idea/
+*.sln.iml
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Local environment
+.env
+.env.local
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# OS
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Logs
+*.log
+
+# Test results
+TestResults/

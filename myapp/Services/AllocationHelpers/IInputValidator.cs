@@ -1,0 +1,10 @@
+using myapp.Models;
+using myapp.Services.Interfaces;
+
+namespace myapp.Services.AllocationHelpers
+{
+    public interface IInputValidator
+    {
+        (bool ok, AllocationResult? errorResult) Validate(Hotel? hotel, int numPeople);
+    }
+}
