@@ -23,7 +23,8 @@ public class RoomTypesCommandHandler
             var res = _alloc.Allocate(hotel, range, numPeople);
             if (!res.Success) return $"Error: {res.ErrorMessage}";
 
-            var parts = res.Rooms.Select(r => r.RoomTypeCode + (r.IsPartial ? "!" : "")).ToArray();
+            var roomsList = res.Rooms ?? new List<AllocatedRoom>();
+            var parts = roomsList.Select(r => r.RoomTypeCode + (r.IsPartial ? "!" : "")).ToArray();
             return $"{hotel.Id}: {string.Join(", ", parts)}";
         }
     }

@@ -30,6 +30,6 @@ public class HotelRepository : IHotelRepository
         }
 
         public IReadOnlyList<Hotel> GetAll() => _hotels;
-        public Hotel GetById(string id) =>
+        public Hotel? GetById(string id) =>
             _hotels.FirstOrDefault(h => string.Equals(h.Id, id, StringComparison.OrdinalIgnoreCase));
     }

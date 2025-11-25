@@ -4,7 +4,7 @@ namespace myapp.Utils
 { 
 public static class JsonFileLoader
     {
-        public static T Load<T>(string path)
+        public static T? Load<T>(string path)
         {
             var txt = File.ReadAllText(path);
             var opts = new JsonSerializerOptions

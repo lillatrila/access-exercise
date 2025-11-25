@@ -212,9 +212,13 @@ public class HotelRepositoryTests : IDisposable
         var hotel2 = repository.GetById("H2");
         var hotel3 = repository.GetById("H3");
 
-        Assert.Equal("Hotel One", hotel1.Name);
-        Assert.Equal("Hotel Two", hotel2.Name);
-        Assert.Equal("Hotel Three", hotel3.Name);
+        Assert.NotNull(hotel1);
+        Assert.NotNull(hotel2);
+        Assert.NotNull(hotel3);
+
+        Assert.Equal("Hotel One", hotel1!.Name);
+        Assert.Equal("Hotel Two", hotel2!.Name);
+        Assert.Equal("Hotel Three", hotel3!.Name);
     }
 
     [Fact]
