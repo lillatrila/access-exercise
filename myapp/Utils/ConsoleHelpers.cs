@@ -42,6 +42,10 @@ public class ConsoleHelpers : IConsoleHelpers
 public interface IConsoleHelpers
 {
     void WriteLine(string message);
-
+    void WriteLine(string format, params object[] args);
+    void WriteLine();
+    void Write(string message);
+    void Write(string format, params object[] args);
     string? ReadLine();
+    string? ReadLine(string prompt);
 }

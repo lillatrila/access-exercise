@@ -4,27 +4,29 @@ using myapp.Services;
 using myapp.Services.Interfaces;
 using myapp.Services.AllocationHelpers.Interfaces;
 using myapp.Services.AllocationHelpers;
+using myapp.Utils;
 
 public static class Program
     {
         public static void Main(string[] args)
         {
+            var console = new ConsoleHelpers();
             try
             {
                 if (args.Length == 0)
                 {
-                    Console.WriteLine("Usage: dotnet run -- --hotels data/hotels.json --bookings data/bookings.json");
+                    console.WriteLine("Usage: dotnet run -- --hotels data/hotels.json --bookings data/bookings.json");
                     return;
                 }
                 var parsed = ParseArgs(args);
                 if (!File.Exists(parsed.HotelsFile))
                 {
-                    Console.WriteLine($"Hotels file not found: {parsed.HotelsFile}");
+                    console.WriteLine($"Hotels file not found: {parsed.HotelsFile}");
                     return;
                 }
                 if (!File.Exists(parsed.BookingsFile))
                 {
-                    Console.WriteLine($"Bookings file not found: {parsed.BookingsFile}");
+                    console.WriteLine($"Bookings file not found: {parsed.BookingsFile}");
                     return;
                 }
 
@@ -39,13 +41,14 @@ public static class Program
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Fatal error: " + ex.Message);
+                console.WriteLine("Fatal error: " + ex.Message);
             }
         }
 
         private static void ConfigureServices(IServiceCollection services, string hotelsFile, string bookingsFile)
         {
              // Register repositories with interfaces
+             services.AddTransient<IConsoleHelpers, ConsoleHelpers>();
             services.AddSingleton<IHotelRepository>(new HotelRepository(hotelsFile));
             services.AddSingleton<IBookingRepository>(new BookingRepository(bookingsFile));
 

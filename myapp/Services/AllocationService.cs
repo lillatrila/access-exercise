@@ -30,6 +30,18 @@ namespace myapp.Services
             _reconstructor = reconstructor;
         }
 
+        // Convenience constructor for backward compatibility with tests
+        public AllocationService(IAvailabilityService availService)
+            : this(
+                availService,
+                new InputValidator(),
+                new AvailabilityCollector(),
+                new ItemBuilder(),
+                new KnapsackSolver(),
+                new AllocationReconstructor())
+        {
+        }
+
         public AllocationResult Allocate(Hotel hotel, DateRange range, int numPeople)
         {
             var validation = _inputValidator.Validate(hotel, numPeople);
