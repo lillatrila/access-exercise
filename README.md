@@ -13,7 +13,7 @@ A .NET 9.0 console application for allocating hotel rooms based on availability 
 Dependencies are automatically restored when you build:
 
 ```bash
-cd /path-to-repo/access
+cd /path-to-repo
 dotnet restore
 ```
 
@@ -41,7 +41,7 @@ Replace `hotels.json` and `bookings.json` with the correct file paths if they ar
 Run all unit tests:
 
 ```bash
-cd /path-to-repo/access
+cd /path-to-repo
 dotnet test myapp.Tests
 ```
 
