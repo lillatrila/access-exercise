@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using myapp.Models;
 
-namespace myapp.Services.AllocationHelpers
+namespace myapp.Services.AllocationHelpers.Interfaces
 {
     public interface IItemBuilder
     {

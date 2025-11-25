@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using myapp.Models;
+using myapp.Services.AllocationHelpers.Interfaces;
 
 namespace myapp.Services.AllocationHelpers
 {

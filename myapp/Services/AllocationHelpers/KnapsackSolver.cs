@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using myapp.Models;
+using myapp.Services.AllocationHelpers.Interfaces;
 
 namespace myapp.Services.AllocationHelpers
 {

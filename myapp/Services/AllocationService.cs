@@ -1,6 +1,7 @@
 using myapp.Models;
 using myapp.Services.Interfaces;
 using myapp.Services.AllocationHelpers;
+using myapp.Services.AllocationHelpers.Interfaces;
 
 namespace myapp.Services
 {
@@ -12,11 +13,6 @@ namespace myapp.Services
         private readonly IItemBuilder _itemBuilder;
         private readonly IKnapsackSolver _knapsackSolver;
         private readonly IAllocationReconstructor _reconstructor;
-
-        public AllocationService(IAvailabilityService availService)
-            : this(availService, new InputValidator(), new AvailabilityCollector(), new ItemBuilder(), new KnapsackSolver(), new AllocationReconstructor())
-        {
-        }
 
         public AllocationService(
             IAvailabilityService availService,

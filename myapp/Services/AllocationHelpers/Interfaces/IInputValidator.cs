@@ -1,7 +1,7 @@
 using myapp.Models;
 using myapp.Services.Interfaces;
 
-namespace myapp.Services.AllocationHelpers
+namespace myapp.Services.AllocationHelpers.Interfaces
 {
     public interface IInputValidator
     {

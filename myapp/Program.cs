@@ -2,6 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using myapp.Services;
 using myapp.Services.Interfaces;
+using myapp.Services.AllocationHelpers.Interfaces;
+using myapp.Services.AllocationHelpers;
 
 public static class Program
     {
@@ -11,7 +13,7 @@ public static class Program
             {
                 if (args.Length == 0)
                 {
-                    Console.WriteLine("Usage: dotnet run -- --hotels hotels.json --bookings bookings.json");
+                    Console.WriteLine("Usage: dotnet run -- --hotels data/hotels.json --bookings data/bookings.json");
                     return;
                 }
                 var parsed = ParseArgs(args);
@@ -53,11 +55,11 @@ public static class Program
             services.AddSingleton<IAllocationService, AllocationService>();
 
             // Allocation helper services (transient, stateless)
-            services.AddTransient<myapp.Services.AllocationHelpers.IInputValidator, myapp.Services.AllocationHelpers.InputValidator>();
-            services.AddTransient<myapp.Services.AllocationHelpers.IAvailabilityCollector, myapp.Services.AllocationHelpers.AvailabilityCollector>();
-            services.AddTransient<myapp.Services.AllocationHelpers.IItemBuilder, myapp.Services.AllocationHelpers.ItemBuilder>();
-            services.AddTransient<myapp.Services.AllocationHelpers.IKnapsackSolver, myapp.Services.AllocationHelpers.KnapsackSolver>();
-            services.AddTransient<myapp.Services.AllocationHelpers.IAllocationReconstructor, myapp.Services.AllocationHelpers.AllocationReconstructor>();
+            services.AddTransient<IInputValidator, InputValidator>();
+            services.AddTransient<IAvailabilityCollector, AvailabilityCollector>();
+            services.AddTransient<IItemBuilder, ItemBuilder>();
+            services.AddTransient<IKnapsackSolver, KnapsackSolver>();
+            services.AddTransient<IAllocationReconstructor, AllocationReconstructor>();
 
             // Register command handlers
             services.AddSingleton<AvailabilityCommandHandler>();
