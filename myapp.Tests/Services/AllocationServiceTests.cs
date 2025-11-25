@@ -3,24 +3,46 @@ using Moq;
 using myapp.Models;
 using myapp.Services;
 using myapp.Services.Interfaces;
+using myapp.Services.AllocationHelpers.Interfaces;
 
 namespace myapp.Tests.Services
 {
     public class AllocationServiceTests
     {
         private readonly Mock<IAvailabilityService> _mockAvailService;
+        private readonly Mock<IInputValidator> _mockInputValidator;
+        private readonly Mock<IAvailabilityCollector> _mockAvailabilityCollector;
+        private readonly Mock<IItemBuilder> _mockItemBuilder;
+        private readonly Mock<IKnapsackSolver> _mockKnapsackSolver;
+        private readonly Mock<IAllocationReconstructor> _mockReconstructor;
         private readonly AllocationService _service;
 
         public AllocationServiceTests()
         {
             _mockAvailService = new Mock<IAvailabilityService>();
-            _service = new AllocationService(_mockAvailService.Object);
+            _mockInputValidator = new Mock<IInputValidator>();
+            _mockAvailabilityCollector = new Mock<IAvailabilityCollector>();
+            _mockItemBuilder = new Mock<IItemBuilder>();
+            _mockKnapsackSolver = new Mock<IKnapsackSolver>();
+            _mockReconstructor = new Mock<IAllocationReconstructor>();
+
+            _service = new AllocationService(
+                _mockAvailService.Object,
+                _mockInputValidator.Object,
+                _mockAvailabilityCollector.Object,
+                _mockItemBuilder.Object,
+                _mockKnapsackSolver.Object,
+                _mockReconstructor.Object);
         }
 
         [Fact]
         public void Allocate_WithNullHotel_ReturnsFalse()
         {
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            _mockInputValidator
+                .Setup(x => x.Validate(null, 5))
+                .Returns((false, new AllocationResult(false, "Unknown hotel", null)));
+
             var result = _service.Allocate(null!, range, 5);
 
             Assert.False(result.Success);
@@ -37,6 +59,10 @@ namespace myapp.Tests.Services
             var hotel = CreateHotel("H1", "Test Hotel");
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
 
+            _mockInputValidator
+                .Setup(x => x.Validate(hotel, numPeople))
+                .Returns((false, new AllocationResult(false, "numPeople must be > 0", null)));
+
             var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.False(result.Success);
@@ -50,7 +76,16 @@ namespace myapp.Tests.Services
             var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2); // 2 rooms of size 2 = capacity 4
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
 
-            MockAvailability(hotel, range, "DOUBLE", 2); // 2 rooms available
+            _mockInputValidator
+                .Setup(x => x.Validate(hotel, 10))
+                .Returns((true, null));
+            
+            _mockAvailabilityCollector
+                .Setup(x => x.Collect(hotel, range, _mockAvailService.Object))
+                .Returns(new List<(RoomType Rt, int Available)>
+                {
+                    (new RoomType("DOUBLE", 2, "Double room", Array.Empty<string>(), Array.Empty<string>()), 2)
+                });
 
             var result = _service.Allocate(hotel, range, 10); // Need 10 people but max capacity is 4
 
@@ -62,12 +97,24 @@ namespace myapp.Tests.Services
         [Fact]
         public void Allocate_WithExactCapacity_SucceedsWithoutPartial()
         {
-            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2); // 2 rooms of size 2 = capacity 4
+            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 4;
 
-            MockAvailability(hotel, range, "DOUBLE", 2); // 2 rooms available
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (new RoomType("DOUBLE", 2, "Double", Array.Empty<string>(), Array.Empty<string>()), 2)
+            };
+            var items = new List<(string, int, int)> { ("DOUBLE", 2, 4) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("DOUBLE", false),
+                new AllocatedRoom("DOUBLE", false)
+            };
 
-            var result = _service.Allocate(hotel, range, 4); // Exactly 4 people
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
@@ -78,18 +125,30 @@ namespace myapp.Tests.Services
         [Fact]
         public void Allocate_WithPartialRoom_MarksLastRoomAsPartial()
         {
-            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2); // 2 rooms of size 2
+            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 3;
 
-            MockAvailability(hotel, range, "DOUBLE", 2);
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (new RoomType("DOUBLE", 2, "Double", Array.Empty<string>(), Array.Empty<string>()), 2)
+            };
+            var items = new List<(string, int, int)> { ("DOUBLE", 2, 4) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("DOUBLE", false),
+                new AllocatedRoom("DOUBLE", true)
+            };
 
-            var result = _service.Allocate(hotel, range, 3); // 3 people: 1 full + 1 partial
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
             Assert.Equal(2, result.Rooms.Count);
-            Assert.False(result.Rooms[0].IsPartial); // First room fully occupied
-            Assert.True(result.Rooms[1].IsPartial);  // Second room partially occupied
+            Assert.False(result.Rooms[0].IsPartial);
+            Assert.True(result.Rooms[1].IsPartial);
         }
 
         [Fact]
@@ -102,15 +161,27 @@ namespace myapp.Tests.Services
             };
             var hotel = new Hotel("H1", "Test Hotel", roomTypes, CreateRoomInstances(2, "SINGLE", 2, "DOUBLE"));
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 5;
 
-            MockAvailability(hotel, range, "SINGLE", 2);
-            MockAvailability(hotel, range, "DOUBLE", 2);
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (roomTypes[0], 2),
+                (roomTypes[1], 2)
+            };
+            var items = new List<(string, int, int)> { ("SINGLE", 2, 2), ("DOUBLE", 2, 4) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("DOUBLE", false),
+                new AllocatedRoom("DOUBLE", false),
+                new AllocatedRoom("SINGLE", false)
+            };
 
-            var result = _service.Allocate(hotel, range, 5); // 5 people
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
-            // Optimal allocation: use 2 DOUBLEs (capacity 4) + 1 SINGLE (capacity 1) = 5 total with 3 rooms
             Assert.Equal(3, result.Rooms.Count);
         }
 
@@ -120,7 +191,16 @@ namespace myapp.Tests.Services
             var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
 
-            MockAvailability(hotel, range, "DOUBLE", -5); // Negative availability (overbooked)
+            _mockInputValidator
+                .Setup(x => x.Validate(hotel, 2))
+                .Returns((true, null));
+            
+            _mockAvailabilityCollector
+                .Setup(x => x.Collect(hotel, range, _mockAvailService.Object))
+                .Returns(new List<(RoomType Rt, int Available)>
+                {
+                    (new RoomType("DOUBLE", 2, "Double", Array.Empty<string>(), Array.Empty<string>()), 0)
+                });
 
             var result = _service.Allocate(hotel, range, 2);
 
@@ -131,12 +211,23 @@ namespace myapp.Tests.Services
         [Fact]
         public void Allocate_WithSingleSmallRoom_SucceedsWithAllocationToOne()
         {
-            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 1, "SINGLE", 1); // 1 room of size 1
+            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 1, "SINGLE", 1);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 1;
 
-            MockAvailability(hotel, range, "SINGLE", 1);
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (new RoomType("SINGLE", 1, "Single", Array.Empty<string>(), Array.Empty<string>()), 1)
+            };
+            var items = new List<(string, int, int)> { ("SINGLE", 1, 1) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("SINGLE", false)
+            };
 
-            var result = _service.Allocate(hotel, range, 1);
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
@@ -148,12 +239,25 @@ namespace myapp.Tests.Services
         [Fact]
         public void Allocate_WithMultipleSmallRooms_SucceedsWithCorrectAllocation()
         {
-            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 4, "SINGLE", 1); // 4 rooms of size 1
+            var hotel = CreateHotelWithRooms("H1", "Test Hotel", 4, "SINGLE", 1);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 3;
 
-            MockAvailability(hotel, range, "SINGLE", 4);
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (new RoomType("SINGLE", 1, "Single", Array.Empty<string>(), Array.Empty<string>()), 4)
+            };
+            var items = new List<(string, int, int)> { ("SINGLE", 4, 4) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("SINGLE", false),
+                new AllocatedRoom("SINGLE", false),
+                new AllocatedRoom("SINGLE", false)
+            };
 
-            var result = _service.Allocate(hotel, range, 3);
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
@@ -170,15 +274,26 @@ namespace myapp.Tests.Services
             };
             var hotel = new Hotel("H1", "Test Hotel", roomTypes, CreateRoomInstances(1, "QUAD"));
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
+            var numPeople = 1;
 
-            MockAvailability(hotel, range, "QUAD", 1);
+            var typeAvail = new List<(RoomType Rt, int Available)>
+            {
+                (roomTypes[0], 1)
+            };
+            var items = new List<(string, int, int)> { ("QUAD", 1, 4) };
+            var allocatedRooms = new List<AllocatedRoom>
+            {
+                new AllocatedRoom("QUAD", true)
+            };
 
-            var result = _service.Allocate(hotel, range, 1);
+            SetupSuccessfulAllocation(hotel, range, numPeople, typeAvail, items, allocatedRooms);
+
+            var result = _service.Allocate(hotel, range, numPeople);
 
             Assert.True(result.Success);
             Assert.NotNull(result.Rooms);
-            Assert.Single(result.Rooms); // Uses 1 room even though capacity is 4
-            Assert.True(result.Rooms[0].IsPartial); // Marked as partial
+            Assert.Single(result.Rooms);
+            Assert.True(result.Rooms[0].IsPartial);
         }
 
         [Fact]
@@ -187,7 +302,16 @@ namespace myapp.Tests.Services
             var hotel = CreateHotelWithRooms("H1", "Test Hotel", 2, "DOUBLE", 2);
             var range = CreateDateRange(DateTime.Now, DateTime.Now.AddDays(1));
 
-            MockAvailability(hotel, range, "DOUBLE", 0); // No rooms available
+            _mockInputValidator
+                .Setup(x => x.Validate(hotel, 2))
+                .Returns((true, null));
+            
+            _mockAvailabilityCollector
+                .Setup(x => x.Collect(hotel, range, _mockAvailService.Object))
+                .Returns(new List<(RoomType Rt, int Available)>
+                {
+                    (new RoomType("DOUBLE", 2, "Double", Array.Empty<string>(), Array.Empty<string>()), 0)
+                });
 
             var result = _service.Allocate(hotel, range, 2);
 
@@ -233,10 +357,39 @@ namespace myapp.Tests.Services
             return new DateRange(startDate, endDate);
         }
 
-        private void MockAvailability(Hotel hotel, DateRange range, string roomType, int availability)
+        private void SetupSuccessfulAllocation(
+            Hotel hotel,
+            DateRange range,
+            int numPeople,
+            List<(RoomType Rt, int Available)> typeAvail,
+            List<(string TypeCode, int Count, int Capacity)> items,
+            List<AllocatedRoom> allocatedRooms)
         {
-            _mockAvailService.Setup(x => x.GetAvailability(hotel, range, roomType))
-                .Returns(availability);
+            _mockInputValidator
+                .Setup(x => x.Validate(hotel, numPeople))
+                .Returns((true, null));
+
+            _mockAvailabilityCollector
+                .Setup(x => x.Collect(hotel, range, _mockAvailService.Object))
+                .Returns(typeAvail);
+
+            _mockItemBuilder
+                .Setup(x => x.Build(typeAvail))
+                .Returns(items);
+
+            var parent = new (int, int)[numPeople + 5];
+            parent[0] = (-1, -1);
+            _mockKnapsackSolver
+                .Setup(x => x.Solve(items, hotel, numPeople))
+                .Returns((true, numPeople, parent, null));
+
+            _mockReconstructor
+                .Setup(x => x.Reconstruct(parent, items, numPeople))
+                .Returns(new Dictionary<string, int>());
+
+            _mockReconstructor
+                .Setup(x => x.BuildAllocatedRooms(hotel, It.IsAny<Dictionary<string, int>>(), numPeople))
+                .Returns(allocatedRooms);
         }
     }
 }
